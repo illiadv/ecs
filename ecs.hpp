@@ -1,0 +1,163 @@
+#ifndef ECS_HPP
+#define ECS_HPP
+
+#include <vector>
+#include <unordered_map>
+#include <optional>
+#include <stdint.h>
+#include <typeindex>
+
+typedef uint32_t Entity;
+
+class IComponentStorage {
+
+    public:
+    virtual int GetSize() = 0;
+    virtual void DeleteEntity(Entity) = 0;
+
+    virtual ~IComponentStorage(){}
+
+};
+
+template <typename T>
+class ComponentStorage : public IComponentStorage{
+
+    int GetSize() override
+    {
+	return m_storage.size();
+    }
+
+    void DeleteEntity(Entity entity) override
+    {
+	m_storage.erase(entity);
+    }
+    // private:
+    public:
+	std::unordered_map<Entity, T> m_storage;
+};
+
+class EntityManager
+{
+    public:
+    Entity AddEntity()
+    {
+	return topFree++;
+    }
+
+    template <typename T>
+    void RegisterComponentType()
+    {
+	auto index = std::type_index(typeid(T));
+	ComponentStorage<T> *storage = new ComponentStorage<T>;
+	componentRegistry.try_emplace(index, storage);
+    }
+
+    template <typename T>
+    void AddComponent(Entity entity, T component)
+    {
+	auto storage = GetComponentStorage<T>();
+	storage->m_storage.try_emplace(entity, component);
+    }
+
+    template <typename T>
+    std::optional<std::reference_wrapper<T>>
+    GetComponent(Entity entity)
+    {
+	auto storage = GetComponentStorage<T>();
+	auto it = storage->m_storage.find(entity);
+	if (it == storage->m_storage.end())
+	    return {};
+	else
+	    return it->second;
+    }
+
+	//    template<typename T, typename T2>
+	//    void ForEach(std::function<void(T&, T2&)> callback)
+	//    {
+	// auto storage = GetComponentStorage<T>();
+	// // auto storage2 = GetComponentStorage<T2>();
+	//
+	//
+	// for (auto& [entity, c1] : storage->m_storage)
+	// {
+	//     std::optional<T2> c2 = GetComponent<T2>(entity);
+	//
+	//     if (!c2)
+	// 	continue;
+	//
+	//     callback(c1, c2.value());
+	// }
+	//    }
+
+    template<typename T, typename... Ts, typename Func>
+    // void ForEach(std::function<void(T&, Ts&...)> callback)
+    void ForEach(Func&& callback)
+    {
+	auto storage = GetComponentStorage<T>();
+	// auto storage2 = GetComponentStorage<T2>();
+	
+
+	for (auto& [entity, c1] : storage->m_storage)
+	{
+	    std::tuple<std::optional<std::reference_wrapper<Ts>>...> comps {
+		GetComponent<Ts>(entity) ...
+	    };
+
+	    if ((std::get<std::optional<std::reference_wrapper<Ts>>>(comps).has_value() && ...)) {
+		
+		callback(entity, c1, std::get<std::optional<std::reference_wrapper<Ts>>>(comps)->get() ...);
+	    }
+	}
+    }
+
+    void KillEntity(Entity entity)
+    {
+	DeadEntities.push_back(entity);
+    }
+
+    void CleanupDead()
+    {
+	for(auto entity : DeadEntities)
+	{
+	    for (auto& [type, storage] : componentRegistry)
+	    {
+		storage->DeleteEntity(entity);
+	    }
+	    DeadEntities.clear();
+	}
+    }
+
+    void DrawDebugInfo(void (*Callback)(int i, int amount, const char* name))
+    {
+	int i = 0;
+	for (auto& [type, storage] : componentRegistry)
+	{
+	    Callback(i, storage->GetSize(), type.name());
+	    i++;
+	}
+    }
+
+    ~EntityManager()
+    {
+	for (auto kv : componentRegistry)
+	    delete kv.second;
+    }
+
+    private:
+
+    template<typename T>
+    ComponentStorage<T> *GetComponentStorage()
+    {
+	auto index = std::type_index(typeid(T));
+	IComponentStorage *storageInterface = componentRegistry.at(index);
+	ComponentStorage<T> *storage = static_cast<ComponentStorage<T>*>(storageInterface);
+	return storage;
+    }
+
+    Entity topFree = 0;
+
+    std::unordered_map<std::type_index, IComponentStorage*> componentRegistry;
+    std::vector<Entity> DeadEntities;
+};
+
+#endif
