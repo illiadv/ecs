@@ -3,7 +3,6 @@
 
 #include <vector>
 #include <unordered_map>
-#include <optional>
 #include <stdint.h>
 #include <typeindex>
 
@@ -60,7 +59,7 @@ class EntityManager
     }
 
     template <typename T>
-    std::optional<std::reference_wrapper<T>>
+    T*
     GetComponent(Entity entity)
     {
 	auto storage = GetComponentStorage<T>();
@@ -94,18 +93,16 @@ class EntityManager
     void ForEach(Func&& callback)
     {
 	auto storage = GetComponentStorage<T>();
-	// auto storage2 = GetComponentStorage<T2>();
-	
 
 	for (auto& [entity, c1] : storage->m_storage)
 	{
-	    std::tuple<std::optional<std::reference_wrapper<Ts>>...> comps {
+	    std::tuple<Ts*...> comps {
 		GetComponent<Ts>(entity) ...
 	    };
 
-	    if ((std::get<std::optional<std::reference_wrapper<Ts>>>(comps).has_value() && ...)) {
+	    if ((std::get<Ts>(comps) && ...)) {
 		
-		callback(entity, c1, std::get<std::optional<std::reference_wrapper<Ts>>>(comps)->get() ...);
+		callback(entity, c1, *std::get<Ts>(comps) ...);
 	    }
 	}
     }
