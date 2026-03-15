@@ -67,7 +67,7 @@ class EntityManager
 	if (it == storage->m_storage.end())
 	    return {};
 	else
-	    return it->second;
+	    return &(it->second);
     }
 
 	//    template<typename T, typename T2>
@@ -100,9 +100,9 @@ class EntityManager
 		GetComponent<Ts>(entity) ...
 	    };
 
-	    if ((std::get<Ts>(comps) && ...)) {
+	    if ((std::get<Ts*>(comps) && ...)) {
 		
-		callback(entity, c1, *std::get<Ts>(comps) ...);
+		callback(entity, c1, *std::get<Ts*>(comps) ...);
 	    }
 	}
     }
