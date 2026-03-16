@@ -13,27 +13,86 @@ class IComponentStorage {
 
     public:
     virtual int GetSize() = 0;
-    virtual void DeleteEntity(Entity) = 0;
+    virtual void DeleteComponent(Entity) = 0;
 
     virtual ~IComponentStorage(){}
 
 };
 
 template <typename T>
-class ComponentStorage : public IComponentStorage{
+class ComponentStorage : public IComponentStorage {
 
     int GetSize() override
     {
-	return m_storage.size();
+	return m_dense.size();
     }
 
-    void DeleteEntity(Entity entity) override
+    typename std::vector<T>::const_iterator begin()
     {
-	m_storage.erase(entity);
+	return m_dense.begin();
     }
-    // private:
-    public:
-	std::unordered_map<Entity, T> m_storage;
+
+    typename std::vector<T>::const_iterator end()
+    {
+	return m_dense.end();
+    }
+
+    void AddComponent(Entity entity, T component)
+    {
+	if (HasComponent(entity)) {
+	    m_dense[m_sparse[entity]] = component;
+	    return;
+	}
+
+	if (entity >= m_sparse.size()) {
+	    m_sparse.resize(entity+1, INVALID_INDEX);
+	}
+
+	m_sparse[entity] = m_dense.size();
+	m_dense.push_back(m_sparse);
+	m_entityList.push_back(entity);
+    }
+
+    T* GetComponent(Entity entity)
+    {
+	if (!HasComponent(entity))
+	    return nullptr;
+	return &m_dense[m_sparse[entity]];
+    }
+
+    bool HasComponent(Entity entity)
+    {
+	return entity < m_sparse.size() && m_sparse[entity] != INVALID_INDEX;
+    }
+
+    void DeleteComponent(Entity entity) override
+    {
+	if (!HasComponent(entity))
+	    return;
+
+	size_t diThis = m_sparse[entity];
+	size_t diLast = m_dense.size() - 1;
+	if (m_sparse[entity] != diLast)
+	{
+	    m_dense[diThis] = std::move(m_dense[diLast]);
+
+	    Entity entityLast = m_entityList[diLast];
+
+	    m_entityList[diThis] = entityLast;
+	    m_sparse[entityLast] = diThis;
+	}
+	m_dense.pop_back();
+	m_entityList.pop_back();
+	m_sparse[entity] = INVALID_INDEX;
+    }
+
+    private:
+    std::vector<T> m_dense;
+    std::vector<size_t> m_sparse;
+
+    std::vector<Entity> m_entityList;
+
+    static constexpr size_t INVALID_INDEX = -1;
 };
 
 class EntityManager
@@ -56,7 +115,7 @@ class EntityManager
     void AddComponent(Entity entity, T component)
     {
 	auto storage = GetComponentStorage<T>();
-	storage->m_storage.try_emplace(entity, component);
+	storage->AddComponent(entity, component);
     }
 
     template <typename T>
@@ -96,7 +155,6 @@ class EntityManager
 	auto storage = GetComponentStorage<T>();
 	// auto storage2 = GetComponentStorage<T2>();
 	
-
 	for (auto& [entity, c1] : storage->m_storage)
 	{
 	    std::tuple<std::optional<std::reference_wrapper<Ts>>...> comps {
@@ -121,7 +179,7 @@ class EntityManager
 	{
 	    for (auto& [type, storage] : componentRegistry)
 	    {
-		storage->DeleteEntity(entity);
+		storage->DeleteComponent(entity);
 	    }
 	    DeadEntities.clear();
 	}
