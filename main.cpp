@@ -87,6 +87,7 @@ void SystemRender(EntityManager& manager)
 {
     auto func = [](Entity e, auto &p) -> void {
 	DrawCircleLinesV(p.position, 2, BLACK);
+	DrawText(TextFormat("%d", e), p.position.x + 20, p.position.y - 20, 10, BLACK);
     };
     manager.ForEach<Position>(func);
 }

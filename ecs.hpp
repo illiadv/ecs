@@ -101,6 +101,12 @@ class EntityManager
     public:
     Entity AddEntity()
     {
+	if (!freeEntities.empty())
+	{
+	    Entity entity = freeEntities[freeEntities.size() - 1];
+	    freeEntities.pop_back();
+	    return entity;
+	}
 	return topFree++;
     }
 
@@ -163,8 +169,9 @@ class EntityManager
 	    {
 		storage->DeleteComponent(entity);
 	    }
-	    DeadEntities.clear();
+	    freeEntities.push_back(entity);
 	}
+	DeadEntities.clear();
     }
 
     void DrawDebugInfo(void (*Callback)(int i, int amount, const char* name))
@@ -198,6 +205,7 @@ class EntityManager
 
     std::unordered_map<std::type_index, IComponentStorage*> componentRegistry;
     std::vector<Entity> DeadEntities;
+    std::vector<Entity> freeEntities;
 };
 
 #endif
