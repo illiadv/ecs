@@ -21,6 +21,7 @@ class IComponentStorage {
 template <typename T>
 class ComponentStorage : public IComponentStorage {
 
+    public:
     int GetSize() override
     {
 	return m_dense.size();
@@ -48,7 +49,7 @@ class ComponentStorage : public IComponentStorage {
 	}
 
 	m_sparse[entity] = m_dense.size();
-	m_dense.push_back(m_sparse);
+	m_dense.push_back(component);
 	m_entityList.push_back(entity);
     }
 
@@ -85,11 +86,12 @@ class ComponentStorage : public IComponentStorage {
 	m_sparse[entity] = INVALID_INDEX;
     }
 
-    private:
     std::vector<T> m_dense;
+    std::vector<Entity> m_entityList;
+
+    private:
     std::vector<size_t> m_sparse;
 
-    std::vector<Entity> m_entityList;
 
     static constexpr size_t INVALID_INDEX = -1;
 };
@@ -122,45 +124,28 @@ class EntityManager
     GetComponent(Entity entity)
     {
 	auto storage = GetComponentStorage<T>();
-	auto it = storage->m_storage.find(entity);
-	if (it == storage->m_storage.end())
-	    return {};
-	else
-	    return &(it->second);
+	return storage->GetComponent(entity);
     }
-
-	//    template<typename T, typename T2>
-	//    void ForEach(std::function<void(T&, T2&)> callback)
-	//    {
-	// auto storage = GetComponentStorage<T>();
-	// // auto storage2 = GetComponentStorage<T2>();
-	//
-	//
-	// for (auto& [entity, c1] : storage->m_storage)
-	// {
-	//     std::optional<T2> c2 = GetComponent<T2>(entity);
-	//
-	//     if (!c2)
-	// 	continue;
-	//
-	//     callback(c1, c2.value());
-	// }
-	//    }
 
     template<typename T, typename... Ts, typename Func>
     // void ForEach(std::function<void(T&, Ts&...)> callback)
     void ForEach(Func&& callback)
     {
 	auto storage = GetComponentStorage<T>();
-	for (auto& [entity, c1] : storage->m_storage)
+
+	for (int i = 0; i < storage->GetSize(); i++)
 	{
+	    Entity entity = storage->m_entityList[i];
+
+	    T* c1 = &storage->m_dense[i];
+
 	    std::tuple<Ts*...> comps {
 		GetComponent<Ts>(entity) ...
 	    };
 
 	    if ((std::get<Ts*>(comps) && ...)) {
 		
-		callback(entity, c1, *std::get<Ts*>(comps) ...);
+		callback(entity, *c1, *std::get<Ts*>(comps) ...);
 	    }
 	}
     }
