@@ -339,8 +339,8 @@ int main(void)
 	if (IsKeyPressed(KEY_SPACE))
 	{
 	    auto pos = manager.GetComponent<Position>(player);
-	    if (pos.has_value()) {
-		Vector2 p = pos->get().position;
+	    if (pos) {
+		Vector2 p = pos->position;
 		Vector2 m = GetMousePosition();
 
 		float d = GetDistance(p, m);
