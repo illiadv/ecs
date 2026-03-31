@@ -58,12 +58,6 @@ struct Lifetime
     int timeToLive;
 };
 
-struct Homing
-{
-    float distance;
-    Vector2 position;
-};
-
 
 void DebugDrawCallback(int i, int amount, const char* name)
 {
@@ -87,7 +81,7 @@ void SystemRender(EntityManager& manager)
 {
     auto func = [](Entity e, auto &p) -> void {
 	DrawCircleLinesV(p.position, 2, BLACK);
-	DrawText(TextFormat("%d", e), p.position.x + 20, p.position.y - 20, 10, BLACK);
+	// DrawText(TextFormat("%d", e), p.position.x + 20, p.position.y - 20, 10, BLACK);
     };
     manager.ForEach<Position>(func);
 }
@@ -117,7 +111,6 @@ void SystemLifetime(EntityManager& manager)
     };
     manager.ForEach<Lifetime>(func);
 }
-
 
 void SystemBullet(EntityManager& manager)
 {
@@ -170,23 +163,6 @@ void SystemMovement(EntityManager& manager)
 	d.velocity.y *= d.dampening;
     };
     manager.ForEach<Dynamic, Position>(func);
-}
-
-void SystemHoming(EntityManager &manager)
-{
-    manager.ForEach<Homing, Dynamic, Position>([](Entity e, Homing &h, Dynamic &d, Position &p) -> void {
-
-		float distance = GetDistance(p.position, h.position);
-		if (distance > h.distance)
-		    return;
-		Vector2 diff = {h.position.x - p.position.x, h.position.y - p.position.y};
-		Vector2 n = {diff.x / distance, diff.y / distance};
-
-		float mag = sqrt(d.velocity.x*d.velocity.x + d.velocity.y * d.velocity.y);
-		d.velocity = {n.x * mag, n.y * mag};
-
-	    });
-
 }
 
 void SystemKeyboard(EntityManager& manager)
@@ -251,7 +227,7 @@ void SystemDragndrop(EntityManager& manager)
     
 }
 
-void SystemHBars(EntityManager& manager)
+void SystemHealthBars(EntityManager& manager)
 {
     auto func = [](Entity e, Health &h, Position &p) -> void {
 	float r = 10;
@@ -282,8 +258,8 @@ int main(void)
     InitWindow(screenWidth, screenHeight, "Entity Component System");
     SetTargetFPS(60);
 
-    Texture texBomb = LoadTexture("assets/st2-bomb1.png");
-    Texture texTux = LoadTexture("assets/st2-tux.png");
+    Texture texObject = LoadTexture("assets/meteorGrey_big4.png");
+    Texture texPlayer = LoadTexture("assets/ufoRed.png");
     Texture texSpark = LoadTexture("assets/spark.png");
 
     EntityManager manager;
@@ -297,7 +273,6 @@ int main(void)
     manager.RegisterComponentType<Keyboard>();
     manager.RegisterComponentType<Bullet>();
     manager.RegisterComponentType<Lifetime>();
-    manager.RegisterComponentType<Homing>();
 
     Entity player;
 
@@ -324,12 +299,12 @@ int main(void)
 	}
 
 	if (i >= 15 && i != 19) {
-	    manager.AddComponent<Sprite>(e, Sprite(texBomb, {(float)texBomb.width, (float)texBomb.height}));
+	    manager.AddComponent<Sprite>(e, Sprite(texObject, {(float)texObject.width, (float)texObject.height}));
 	}
 
 	if (i == 19) {
 	    manager.AddComponent<Keyboard>(e, Keyboard{1});
-	    manager.AddComponent<Sprite>(e, Sprite(texTux, {(float)texTux.width, (float)texTux.height}));
+	    manager.AddComponent<Sprite>(e, Sprite(texPlayer, {(float)texPlayer.width, (float)texPlayer.height}));
 	    player = e;
 	}
    }
@@ -356,23 +331,18 @@ int main(void)
 		manager.AddComponent<Dynamic>(bullet, Dynamic{{n.x * speed, n.y * speed}, {0,0}, 1.0f});
 		manager.AddComponent<Lifetime>(bullet, Lifetime{3 * 60});
 		manager.AddComponent<Bullet>(bullet, {20, player});
-		manager.AddComponent<Homing>(bullet, {150, {screenWidth / 2.0f, screenHeight / 2.0f}});
 		manager.AddComponent<Sprite>(bullet, Sprite(texSpark, {(float)texSpark.width, (float)texSpark.height}));
 	    }
 	    
 	}
 
 	SystemKeyboard(manager);
-
-	SystemHoming(manager);
 	SystemMovement(manager);
-	
 	SystemBullet(manager);
 	SystemHealth(manager);
 	SystemLifetime(manager);
 	SystemCollistion(manager);
 	SystemDragndrop(manager);
-
 	SystemDelete(manager);
 
 	BeginDrawing();
@@ -382,7 +352,7 @@ int main(void)
 	SystemRender(manager);
 	SystemRenderRaduis(manager);
 	SystemRenderSprites(manager);
-	SystemHBars(manager);
+	SystemHealthBars(manager);
 
 	manager.DrawDebugInfo(DebugDrawCallback);
 
